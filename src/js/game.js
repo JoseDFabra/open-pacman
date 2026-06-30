@@ -153,8 +153,8 @@ function movePacman( game ) {
 function decideGhost( game, g ) {
   const grid = game.grid;
   const p = game.pacman;
-  // leftPen efectivo: los ojos (mode==='eyes') pueden cruzar la puerta (3).
-  const effLeftPen = g.leftPen && g.mode !== 'eyes';
+  // leftPen efectivo: la puerta (3) vuelve a ser muro para todo leftPen (spec 04).
+  const effLeftPen = g.leftPen;
 
   // Modo asustado: direccion aleatoria valida en cada cruce (sin perseguir).
   if ( g.mode === 'frightened' ) {
@@ -163,36 +163,6 @@ function decideGhost( game, g ) {
     );
     const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
     g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
-    return;
-  }
-
-  // Modo ojos: greedy Manhattan hacia PEN_EXIT y luego hacia su start.
-  if ( g.mode === 'eyes' ) {
-    let tx, ty;
-    if ( Math.round( g.x ) === PEN_EXIT.x && Math.round( g.y ) === PEN_EXIT.y ) {
-      tx = g.startX;
-      ty = g.startY;
-    } else {
-      tx = PEN_EXIT.x;
-      ty = PEN_EXIT.y;
-    }
-    const options = Object.keys( DIRS ).filter(
-      ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', effLeftPen )
-    );
-    const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
-    let best = choices[ 0 ];
-    let bestDist = Infinity;
-    for ( const dir of choices ) {
-      const d = DIRS[ dir ];
-      const nx = g.x + d.x;
-      const ny = g.y + d.y;
-      const dist = Math.abs( nx - tx ) + Math.abs( ny - ty );
-      if ( dist < bestDist ) {
-        bestDist = dist;
-        best = dir;
-      }
-    }
-    g.dir = best;
     return;
   }
 
@@ -260,14 +230,6 @@ function moveGhost( game, g ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
 
-    // Ojos que llegaron a su start: volver a chase y re-exitar (spec 02).
-    if ( g.mode === 'eyes' && g.x === g.startX && g.y === g.startY ) {
-      g.mode = 'chase';
-      g.leftPen = false;
-      g.released = true;
-      g.releaseAt = performance.now();
-    }
-
     if ( g.released && !g.leftPen ) {
       if ( g.x === PEN_EXIT.x && g.y === PEN_EXIT.y ) {
         g.leftPen = true;
@@ -278,7 +240,7 @@ function moveGhost( game, g ) {
     } else {
       decideGhost( game, g );
     }
-    const effLeftPen = g.leftPen && g.mode !== 'eyes';
+    const effLeftPen = g.leftPen;
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost', effLeftPen ) ) return;
   }
 
@@ -289,6 +251,17 @@ function moveGhost( game, g ) {
   g.x += d.x * speed;
   g.y += d.y * speed;
   wrapTunnel( g, width );
+
+  // Seguridad: si un fantasma sale del mapa (fuera de la fila del tunel), teleport a su start (spec 04).
+  if ( Math.round( g.y ) !== TUNNEL_ROW && ( g.x < 0 || g.x > 27 || g.y < 0 || g.y > 31 ) ) {
+    g.x = g.startX;
+    g.y = g.startY;
+    g.dir = 'up';
+    g.mode = 'chase';
+    g.leftPen = false;
+    g.released = true;
+    g.releaseAt = performance.now();
+  }
 }
 
 function resetPositions( game ) {
@@ -331,7 +304,14 @@ function update( game ) {
   for ( const g of game.ghosts ) {
     if ( !collides( game.pacman, g ) ) continue;
     if ( g.mode === 'frightened' ) {
-      g.mode = 'eyes';
+      // Teleport directo a la celda de inicio dentro de la pen y re-exitar (spec 04).
+      g.x = g.startX;
+      g.y = g.startY;
+      g.dir = 'up';
+      g.mode = 'chase';
+      g.leftPen = false;
+      g.released = true;
+      g.releaseAt = performance.now();
       game.score += GHOST_EAT_SCORES[ Math.min( game.frightChain, 3 ) ];
       game.frightChain++;
     } else if ( g.mode === 'eyes' ) {
