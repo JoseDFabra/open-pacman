@@ -298,6 +298,8 @@ function resetPositions( game ) {
   p.dir = 'left';
   p.nextDir = null;
   const releaseStart = performance.now();
+  game.frightUntil = 0;
+  game.frightChain = 0;
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
@@ -305,6 +307,7 @@ function resetPositions( game ) {
     g.released = false;
     g.leftPen = false;
     g.releaseAt = releaseStart + ( i + 1 ) * GHOST_RELEASE_INTERVAL_MS;
+    g.mode = 'chase';
   } );
 }
 
