@@ -153,8 +153,8 @@ function movePacman( game ) {
 function decideGhost( game, g ) {
   const grid = game.grid;
   const p = game.pacman;
-  // leftPen efectivo: los ojos (mode==='eyes') pueden cruzar la puerta (3).
-  const effLeftPen = g.leftPen && g.mode !== 'eyes';
+  // leftPen efectivo: la puerta (3) vuelve a ser muro para todo leftPen (spec 04).
+  const effLeftPen = g.leftPen;
 
   // Modo asustado: direccion aleatoria valida en cada cruce (sin perseguir).
   if ( g.mode === 'frightened' ) {
@@ -240,7 +240,7 @@ function moveGhost( game, g ) {
     } else {
       decideGhost( game, g );
     }
-    const effLeftPen = g.leftPen && g.mode !== 'eyes';
+    const effLeftPen = g.leftPen;
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost', effLeftPen ) ) return;
   }
 
