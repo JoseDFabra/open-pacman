@@ -19,6 +19,7 @@ const FRIGHT_DURATION_MS = 6000;
 const FRIGHT_FLASH_MS = 2000;
 const FRIGHTENED_SPEED = 0.05; // mitad de GHOST_SPEED (0.1)
 const EYES_SPEED = 0.15;       // 1.5x GHOST_SPEED
+const GHOST_EAT_SCORES = [ 200, 400, 800, 1600 ];
 const AMBUSHER_AIM_STRIDE = 4; // celdas por delante de Pac-Man
 const PATROL_CORNERS = [
   { x: 1, y: 1 },
@@ -283,7 +284,16 @@ function update( game ) {
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
   for ( const g of game.ghosts ) {
-    if ( collides( game.pacman, g ) ) {
+    if ( !collides( game.pacman, g ) ) continue;
+    if ( g.mode === 'frightened' ) {
+      g.mode = 'eyes';
+      game.score += GHOST_EAT_SCORES[ Math.min( game.frightChain, 3 ) ];
+      game.frightChain++;
+    } else if ( g.mode === 'eyes' ) {
+      // Contacto con ojos: inofensivo.
+      continue;
+    } else {
+      // chase: perder vida.
       game.lives--;
       if ( game.lives <= 0 ) {
         game.state = 'lost';
