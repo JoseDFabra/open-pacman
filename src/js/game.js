@@ -131,16 +131,24 @@ function decideGhost( game, g ) {
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
-  if ( g.kind === 'hunter' || g.kind === 'ambusher' ) {
+  if ( g.kind === 'hunter' || g.kind === 'ambusher' || g.kind === 'patrol' ) {
     let tx, ty;
     if ( g.kind === 'hunter' ) {
       tx = Math.round( p.x );
       ty = Math.round( p.y );
-    } else {
+    } else if ( g.kind === 'ambusher' ) {
       // ambusher: 4 celdas por delante de Pac-Man
       const pd = DIRS[ p.dir ] || DIRS.left;
       tx = Math.round( p.x ) + pd.x * AMBUSHER_AIM_STRIDE;
       ty = Math.round( p.y ) + pd.y * AMBUSHER_AIM_STRIDE;
+    } else {
+      // patrol: alterna entre PATROL_CORNERS
+      if ( g.patrolTarget === undefined ) g.patrolTarget = 0;
+      tx = PATROL_CORNERS[ g.patrolTarget ].x;
+      ty = PATROL_CORNERS[ g.patrolTarget ].y;
+      if ( Math.abs( g.x - tx ) + Math.abs( g.y - ty ) <= 1 ) {
+        g.patrolTarget = ( g.patrolTarget + 1 ) % PATROL_CORNERS.length;
+      }
     }
     let best = choices[ 0 ];
     let bestDist = Infinity;
