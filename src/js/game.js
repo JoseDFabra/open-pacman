@@ -170,6 +170,14 @@ function decideGhost( game, g ) {
   }
 }
 
+function exitPenStep( game, g ) {
+  if ( Math.round( g.x ) !== PEN_EXIT.x ) {
+    g.dir = g.x < PEN_EXIT.x ? 'right' : 'left';
+  } else {
+    g.dir = 'up';
+  }
+}
+
 function moveGhost( game, g ) {
   if ( !g.released ) {
     if ( performance.now() < g.releaseAt ) return;
@@ -182,7 +190,16 @@ function moveGhost( game, g ) {
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
-    decideGhost( game, g );
+    if ( g.released && !g.leftPen ) {
+      if ( g.x === PEN_EXIT.x && g.y === PEN_EXIT.y ) {
+        g.leftPen = true;
+        decideGhost( game, g );
+      } else {
+        exitPenStep( game, g );
+      }
+    } else {
+      decideGhost( game, g );
+    }
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
   }
 
