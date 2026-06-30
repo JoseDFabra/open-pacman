@@ -252,8 +252,8 @@ function moveGhost( game, g ) {
   g.y += d.y * speed;
   wrapTunnel( g, width );
 
-  // Seguridad: si un fantasma sale del mapa, teleport a su start y re-exitar (spec 04).
-  if ( g.x < 0 || g.x > 27 || g.y < 0 || g.y > 31 ) {
+  // Seguridad: si un fantasma sale del mapa (fuera de la fila del tunel), teleport a su start (spec 04).
+  if ( Math.round( g.y ) !== TUNNEL_ROW && ( g.x < 0 || g.x > 27 || g.y < 0 || g.y > 31 ) ) {
     g.x = g.startX;
     g.y = g.startY;
     g.dir = 'up';
