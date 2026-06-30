@@ -19,6 +19,7 @@ const PATROL_CORNERS = [
   { x: 1, y: 1 },
   { x: 26, y: 29 },
 ];
+const PEN_EXIT = { x: 13, y: 11 };
 
 // Crea una partida nueva. Copia MAZE (pristino) a game.grid para poder comer
 // dots sin destruir el original, y reiniciar.
@@ -53,6 +54,7 @@ function createGame() {
       kind: g.kind,
       released: false,
       releaseAt: releaseStart + ( i + 1 ) * GHOST_RELEASE_INTERVAL_MS,
+      leftPen: false,
     } ) ),
   };
 }
@@ -63,25 +65,26 @@ function aligned( v ) {
 
 // Una celda es muro para el actor dado?
 //   pacman: bloqueado por pared (1) y puerta (3)
-//   ghost:  bloqueado solo por pared (1)
-function isWall( grid, x, y, actor ) {
+//   ghost:  bloqueado solo por pared (1); ademas por puerta (3) si leftPen
+//           (evita reentrada a la pen una vez fuera)
+function isWall( grid, x, y, actor, leftPen ) {
   if ( y < 0 || y >= grid.length ) return true;
   if ( x < 0 || x >= grid[ 0 ].length ) return true;
   const v = grid[ y ][ x ];
   if ( v === 1 ) return true;
-  if ( v === 3 && actor === 'pacman' ) return true;
+  if ( v === 3 && ( actor === 'pacman' || ( actor === 'ghost' && leftPen ) ) ) return true;
   return false;
 }
 
 // Puede el actor avanzar desde (x,y) en la direccion dir?
-function canMove( grid, x, y, dir, actor ) {
+function canMove( grid, x, y, dir, actor, leftPen ) {
   const d = DIRS[ dir ];
   if ( !d ) return false;
   const tx = x + d.x;
   const ty = y + d.y;
   // Tunel: salir por un borde en la fila del tunel siempre es valido.
   if ( ty === TUNNEL_ROW && ( tx < 0 || tx >= grid[ 0 ].length ) ) return true;
-  return !isWall( grid, tx, ty, actor );
+  return !isWall( grid, tx, ty, actor, leftPen );
 }
 
 function wrapTunnel( a, width ) {
@@ -126,7 +129,7 @@ function decideGhost( game, g ) {
   const p = game.pacman;
 
   const options = Object.keys( DIRS ).filter(
-    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', g.leftPen )
   );
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
@@ -168,6 +171,14 @@ function decideGhost( game, g ) {
   }
 }
 
+function exitPenStep( game, g ) {
+  if ( Math.round( g.x ) !== PEN_EXIT.x ) {
+    g.dir = g.x < PEN_EXIT.x ? 'right' : 'left';
+  } else {
+    g.dir = 'up';
+  }
+}
+
 function moveGhost( game, g ) {
   if ( !g.released ) {
     if ( performance.now() < g.releaseAt ) return;
@@ -180,8 +191,17 @@ function moveGhost( game, g ) {
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
-    decideGhost( game, g );
-    if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
+    if ( g.released && !g.leftPen ) {
+      if ( g.x === PEN_EXIT.x && g.y === PEN_EXIT.y ) {
+        g.leftPen = true;
+        decideGhost( game, g );
+      } else {
+        exitPenStep( game, g );
+      }
+    } else {
+      decideGhost( game, g );
+    }
+    if ( !canMove( grid, g.x, g.y, g.dir, 'ghost', g.leftPen ) ) return;
   }
 
   const d = DIRS[ g.dir ];
@@ -196,10 +216,14 @@ function resetPositions( game ) {
   p.y = PACMAN_START.y;
   p.dir = 'left';
   p.nextDir = null;
+  const releaseStart = performance.now();
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
+    g.released = false;
+    g.leftPen = false;
+    g.releaseAt = releaseStart + ( i + 1 ) * GHOST_RELEASE_INTERVAL_MS;
   } );
 }
 
