@@ -153,19 +153,51 @@ function movePacman( game ) {
 function decideGhost( game, g ) {
   const grid = game.grid;
   const p = game.pacman;
+  // leftPen efectivo: los ojos (mode==='eyes') pueden cruzar la puerta (3).
+  const effLeftPen = g.leftPen && g.mode !== 'eyes';
 
   // Modo asustado: direccion aleatoria valida en cada cruce (sin perseguir).
   if ( g.mode === 'frightened' ) {
     const options = Object.keys( DIRS ).filter(
-      ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', g.leftPen )
+      ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', effLeftPen )
     );
     const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
     g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
     return;
   }
 
+  // Modo ojos: greedy Manhattan hacia PEN_EXIT y luego hacia su start.
+  if ( g.mode === 'eyes' ) {
+    let tx, ty;
+    if ( Math.round( g.x ) === PEN_EXIT.x && Math.round( g.y ) === PEN_EXIT.y ) {
+      tx = g.startX;
+      ty = g.startY;
+    } else {
+      tx = PEN_EXIT.x;
+      ty = PEN_EXIT.y;
+    }
+    const options = Object.keys( DIRS ).filter(
+      ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', effLeftPen )
+    );
+    const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
+    let best = choices[ 0 ];
+    let bestDist = Infinity;
+    for ( const dir of choices ) {
+      const d = DIRS[ dir ];
+      const nx = g.x + d.x;
+      const ny = g.y + d.y;
+      const dist = Math.abs( nx - tx ) + Math.abs( ny - ty );
+      if ( dist < bestDist ) {
+        bestDist = dist;
+        best = dir;
+      }
+    }
+    g.dir = best;
+    return;
+  }
+
   const options = Object.keys( DIRS ).filter(
-    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', g.leftPen )
+    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost', effLeftPen )
   );
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
@@ -227,6 +259,15 @@ function moveGhost( game, g ) {
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
+
+    // Ojos que llegaron a su start: volver a chase y re-exitar (spec 02).
+    if ( g.mode === 'eyes' && g.x === g.startX && g.y === g.startY ) {
+      g.mode = 'chase';
+      g.leftPen = false;
+      g.released = true;
+      g.releaseAt = performance.now();
+    }
+
     if ( g.released && !g.leftPen ) {
       if ( g.x === PEN_EXIT.x && g.y === PEN_EXIT.y ) {
         g.leftPen = true;
@@ -237,7 +278,8 @@ function moveGhost( game, g ) {
     } else {
       decideGhost( game, g );
     }
-    if ( !canMove( grid, g.x, g.y, g.dir, 'ghost', g.leftPen ) ) return;
+    const effLeftPen = g.leftPen && g.mode !== 'eyes';
+    if ( !canMove( grid, g.x, g.y, g.dir, 'ghost', effLeftPen ) ) return;
   }
 
   const d = DIRS[ g.dir ];
