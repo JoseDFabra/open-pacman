@@ -131,16 +131,24 @@ function decideGhost( game, g ) {
   // Sin salida (callejon): permitir el giro de 180.
   const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
 
-  if ( g.kind === 'hunter' ) {
-    const px = Math.round( p.x );
-    const py = Math.round( p.y );
+  if ( g.kind === 'hunter' || g.kind === 'ambusher' ) {
+    let tx, ty;
+    if ( g.kind === 'hunter' ) {
+      tx = Math.round( p.x );
+      ty = Math.round( p.y );
+    } else {
+      // ambusher: 4 celdas por delante de Pac-Man
+      const pd = DIRS[ p.dir ] || DIRS.left;
+      tx = Math.round( p.x ) + pd.x * AMBUSHER_AIM_STRIDE;
+      ty = Math.round( p.y ) + pd.y * AMBUSHER_AIM_STRIDE;
+    }
     let best = choices[ 0 ];
     let bestDist = Infinity;
     for ( const dir of choices ) {
       const d = DIRS[ dir ];
       const nx = g.x + d.x;
       const ny = g.y + d.y;
-      const dist = Math.abs( nx - px ) + Math.abs( ny - py );
+      const dist = Math.abs( nx - tx ) + Math.abs( ny - ty );
       if ( dist < bestDist ) {
         bestDist = dist;
         best = dir;
