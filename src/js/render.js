@@ -100,7 +100,7 @@ function drawPacman( ctx, p, frame ) {
   ctx.fill();
 }
 
-function drawGhost( ctx, g, color ) {
+function drawGhost( ctx, g, color, mode, frightUntil, frame ) {
   const { cx, cy } = cellCenter( g.x, g.y );
   const r = TILE / 2 - 1;
   const top = cy - r;
@@ -108,7 +108,37 @@ function drawGhost( ctx, g, color ) {
   const left = cx - r;
   const right = cx + r;
 
-  ctx.fillStyle = color;
+  // Modo ojos: solo los dos ojos, sin cuerpo.
+  if ( mode === 'eyes' ) {
+    const dir = DIRS[ g.dir ] || { x: 0, y: 0 };
+    const ex = dir.x * 1.6;
+    const ey = dir.y * 1.6;
+    for ( const off of [ -3.5, 3.5 ] ) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc( cx + off, cy - 1, 3, 0, Math.PI * 2 );
+      ctx.fill();
+      ctx.fillStyle = '#0000bb';
+      ctx.beginPath();
+      ctx.arc( cx + off + ex, cy - 1 + ey, 1.5, 0, Math.PI * 2 );
+      ctx.fill();
+    }
+    return;
+  }
+
+  // Color del cuerpo segun modo.
+  let body = color;
+  if ( mode === 'frightened' ) {
+    const now = performance.now();
+    const remaining = frightUntil - now;
+    if ( remaining > 0 && remaining < FRIGHT_FLASH_MS ) {
+      // Parpadeo a blanco en los ultimos 2000ms segun frame.
+      body = ( Math.floor( frame / 8 ) % 2 === 0 ) ? '#ffffff' : '#0000ff';
+    } else {
+      body = '#0000ff';
+    }
+  }
+  ctx.fillStyle = body;
   ctx.beginPath();
   ctx.arc( cx, cy - 1, r, Math.PI, 0, false ); // cabeza
   ctx.lineTo( right, bottom );
@@ -165,7 +195,7 @@ function draw( ctx, game, frame ) {
   drawDoor( ctx, grid );
   drawDots( ctx, grid );
   drawPacman( ctx, game.pacman, frame );
-  game.ghosts.forEach( ( g ) => drawGhost( ctx, g, GHOST_COLORS_BY_KIND[ g.kind ] || '#ff0000' ) );
+  game.ghosts.forEach( ( g ) => drawGhost( ctx, g, GHOST_COLORS_BY_KIND[ g.kind ] || '#ff0000', g.mode, game.frightUntil, frame ) );
   drawHUD( ctx, game, W );
 }
 
